@@ -1,0 +1,65 @@
+#!/usr/bin/python3
+
+import socket
+import os
+
+def send_file(file_name, host='localhost' , port=8080):
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket.connect((host, port))
+
+    client_socket.send("send".encode())  # Indicate the sending mode to server
+    client_socket.send(file_name.encode())  # Send file name
+
+    if os.path.exists(file_name):
+        file_size = os.path.getsize(file_name)
+        client_socket.send(f"{file_size}".encode())  # Send file size to server
+
+        with open(file_name, "rb") as file:
+            while (chunk := file.read(1024)):
+                client_socket.send(chunk)
+        print(f"File '{file_name}' sent successfully.")
+    else:
+        client_socket.send(b'0')  # Send '0' indicating file doesn't exist
+        print(f"File '{file_name}' not found on client.")
+
+    client_socket.close()
+
+def receive_file(file_name, host='localhost', port=8080):
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket.connect((host, port))
+
+    client_socket.send("receive".encode())  # Indicate receiving mode to server
+    client_socket.send(file_name.encode())  # Send requested file name
+
+    file_size = client_socket.recv(1024).decode()  # Receive the file size
+    if file_size == '0':
+        print(f"File '{file_name}' not found on the server.")
+        client_socket.close()
+        return
+    
+    file_size = int(file_size)
+    print(f"Receiving file '{file_name}' of size {file_size} bytes...")
+
+    with open(f"received_{file_name}", "wb") as file:
+        total_received = 0
+        while total_received < file_size:
+            data = client_socket.recv(1024)
+            if not data:
+                break
+            file.write(data)
+            total_received += len(data)
+    
+    print(f"File '{file_name}' received successfully.")
+    client_socket.close()
+
+if __name__ == "__main__":
+    mode = input("Enter 'send' to upload a file or 'receive' to download a file: ")
+    
+    file_name = input("Enter the file name: ")
+    
+    if mode == "send":
+        send_file(file_name)
+    elif mode == "receive":
+        receive_file(file_name)
+    else:
+        print("Invalid mode selected.")

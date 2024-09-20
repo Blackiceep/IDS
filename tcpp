@@ -1,0 +1,72 @@
+#!/usr/bin/python3
+
+import socket 
+import os
+
+def receive_file(file_name, conn):
+	file_size = conn.recv(1024).decode()  # Receive file size
+	if file_size == 0:
+		print(f"File '{file_name}' not found on client side.")
+		return
+
+	print(f"Receiving file '{file_name}' of size {file_size} bytes...")
+
+	with open(f"received_{file_name}", "wb") as file:
+		total_received = 0
+		while total_received < file_size:
+			data = conn.recv(1024)
+			if not data:
+				break
+			file.write(data)
+			total_received += len(data)
+
+	print(f"File '{file_name}' received successfully.")
+
+def send_file(file_name, conn):
+	if os.path.exists(file_name):
+		file_size = os.path.getsize(file_name)
+		conn.send(f"{file_size}".encode())
+
+		with open(file_name, "rb") as file:
+			while (chunk := file.read(1024)):
+				conn.seend(chunk)
+		print(f"File '{file_name}' sent successfully.")
+	else:
+		conn.send(b'0')
+		print(f"File '{file_name}' not found on the server.")
+
+def start_tcp_server():
+	server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	server_socket.bind(('localhost', 8080))
+	server_socket.listen(5)
+	print("TCP Server listening on port 8080")
+
+	while True:
+		client_socket, client_address = server_socket.accept()
+		print(f"Connection established with {client_address}")
+		conn = client_socket
+		#mode = input("Enter the mode   ")
+		#if mode == "send":
+		file_name = conn.recv(1024).decode()
+		receive_file(file_name, conn)
+		#elif mode == "recieve":
+		#	file_name = conn.recv(1024).decode()
+		#	send_file(file_name, conn)
+		conn.close()
+
+	while True:
+		client_socket, client_address = server_socket.accept()
+		if client_address[0] in whitelist_ips:
+			print(f"Accept connection attempt from {client_address[0]}")
+			client_socket.send(b'You are connected to the server!')
+
+		else:
+			print(f"Block connection attempt from {client_address[0]}")
+		client_socket.close()
+
+
+if __name__ == "__main__":
+    start_tcp_server()
+    whitelist_ips = ['192.168.1.', 'localhost']
+    simple_firewall(whitelist_ips)
+
